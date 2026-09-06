@@ -1,0 +1,19 @@
+{
+  "squat": {
+    "knee_cave_left": "high",
+    "knee_cave_right": "high",
+    "shallow_depth": "med",
+    "excess_torso_lean": "med"
+  },
+  "pushup": {
+    "elbow_flare": "med",
+    "hip_sag": "high",
+    "shallow_pushup": "med"
+  },
+  "lunge": {
+    "front_knee_cave": "high",
+    "front_knee_overextend": "high",
+    "shallow_lunge": "med",
+    "excess_torso_lean": "med"
+  }
+}

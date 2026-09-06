@@ -1,0 +1,80 @@
+# Stage-0 regression gate (EVAL_HARNESS_STAGE0_SPEC.md §10, EVAL_STRATEGY.md §4).
+#
+# The eval set is the executable spec: a change that drops a tracked metric below its floor fails
+# the build. aggregate.py exits non-zero when any gate dimension fails, which is what makes that
+# real -- see the pipefail note on the full-gate step below.
+#
+# Python: 3.12 is the project minimum (CLAUDE.md §4, "Python 3.12+"); local dev runs 3.13. The
+# detector/harness is stdlib-only, but `unittest discover -s evals/gate0` also collects the
+# prototype_api tests, which import fastapi -- so there IS a small install step (the pinned
+# prototype_api/requirements.txt). And because a stdlib-only harness can still break on a runtime
+# change (Ch 39's drift concern), fast-gate runs a 3.12 + 3.13 matrix to catch that on the cheap job.
+name: gate0-eval
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  schedule:
+    # Nightly full gate + drift watch (EVAL_STRATEGY.md §6). 06:00 UTC.
+    - cron: "0 6 * * *"
+  workflow_dispatch: {}
+
+jobs:
+  # Fast gate: cheap assertions + rep-accuracy on the golden set, plus the scorer unit tests.
+  # Runs on every push/PR so it's part of the normal review loop, not a separate slow step.
+  fast-gate:
+    if: github.event_name == 'pull_request' || github.event_name == 'push'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false          # report BOTH versions' results; one breaking shouldn't hide the other
+      matrix:
+        python-version: ["3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install API test deps (fastapi/uvicorn/pydantic/httpx — for the prototype_api tests)
+        run: pip install -r evals/gate0/prototype_api/requirements.txt
+      - name: Unit tests (rep_match, form_pr, phantom, subject_lock, view, exercise_lib, golden loader)
+        run: python -m unittest discover -s evals/gate0 -p "test_*.py" -v
+      - name: Fast gate (assertions + rep-acc on golden subset)
+        run: python evals/gate0/aggregate.py --golden evals/gate0/golden --mode fast
+
+  # Full gate: + form precision/recall, subject-lock, view robustness. More expensive (label-based
+  # evals, Ch 39's 70/30 rule), so it runs on merge to main and nightly, not on every PR.
+  # Pinned to 3.12, the project minimum -- the floor is what's worth guarding on the slow job.
+  full-gate:
+    if: github.event_name == 'push' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install API test deps (fastapi/uvicorn/pydantic/httpx)
+        run: pip install -r evals/gate0/prototype_api/requirements.txt
+      - name: Full gate (+ form P/R + subject-lock + view)
+        # pipefail is load-bearing, not style: GitHub's default shell is `bash -e {0}` WITHOUT
+        # pipefail, so `python ... | tee` would report the exit status of tee (always 0) and a
+        # FAILING gate would be reported as a passing job -- a gate that silently stops gating.
+        # Verified: `bash -e -c 'false | tee /dev/null'` exits 0; with pipefail it exits 1.
+        shell: bash
+        run: |
+          set -o pipefail
+          python evals/gate0/aggregate.py --golden evals/gate0/golden --mode full | tee gate0-full-report.txt
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gate0-full-report
+          path: gate0-full-report.txt
+
+# Making this BLOCK a merge is a repo-settings step, not a workflow one: add the fast-gate matrix
+# jobs as required status checks in branch protection for `main`
+# (Settings -> Branches -> branch protection rule -> "Require status checks to pass before merging").
+# Require `fast-gate (3.12)` and `fast-gate (3.13)` -- the matrix makes one check per version.
+# Do NOT require `full-gate`: it deliberately does not run on `pull_request` events (see the
+# fast/full split above and EVAL_HARNESS_STAGE0_SPEC.md §10), so a PR would wait forever on a check
+# that never starts. It guards main post-merge and nightly instead.

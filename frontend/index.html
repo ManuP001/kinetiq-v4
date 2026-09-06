@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0f172a" />
+  <title>Kinetiq — Live Session</title>
+  <link rel="manifest" href="manifest.json" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <!-- ============ SCREEN 1: exercise picker ============ -->
+  <section id="screen-picker" class="screen active">
+    <header class="app-header">
+      <h1 class="wordmark">Kinetiq</h1>
+      <p class="tagline">Your phone is the trainer. Pixels never leave this device.</p>
+    </header>
+    <p class="pick-label">Choose an exercise</p>
+    <div class="exercise-grid">
+      <button class="exercise-card" data-exercise="squat">
+        <span class="ex-name">Squat</span>
+        <span class="ex-sub">side or front view</span>
+      </button>
+      <button class="exercise-card" data-exercise="pushup">
+        <span class="ex-name">Push-up</span>
+        <span class="ex-sub">side view, phone low</span>
+      </button>
+      <button class="exercise-card" data-exercise="lunge">
+        <span class="ex-name">Lunge</span>
+        <span class="ex-sub">side view</span>
+      </button>
+    </div>
+    <p class="note">Only squat, push-up and lunge are vision-live in this prototype.</p>
+  </section>
+
+  <!-- ============ SCREEN 2: live session ============ -->
+  <section id="screen-live" class="screen">
+    <div class="video-wrap">
+      <video id="video" playsinline muted></video>
+      <canvas id="overlay"></canvas>
+
+      <!-- top status strip -->
+      <div class="hud-top">
+        <button id="btn-back" class="ghost-btn" aria-label="Back">&#8592;</button>
+        <span id="hud-exercise" class="hud-exercise">—</span>
+        <span id="hud-lock" class="lock-pill lock-unknown">locating you…</span>
+      </div>
+
+      <!-- rep counter -->
+      <div class="hud-rep">
+        <div id="rep-count" class="rep-count">0</div>
+        <div id="phase" class="phase">—</div>
+      </div>
+
+      <!-- coaching cue + flags -->
+      <div class="hud-bottom">
+        <div id="cue" class="cue" hidden></div>
+        <div id="flags" class="flags"></div>
+      </div>
+
+      <!-- overlay states -->
+      <div id="state-overlay" class="state-overlay" hidden>
+        <div class="state-card">
+          <div id="state-title" class="state-title">Loading…</div>
+          <div id="state-msg" class="state-msg"></div>
+          <button id="state-action" class="primary-btn" hidden></button>
+        </div>
+      </div>
+    </div>
+
+    <div class="controls">
+      <button id="btn-stop" class="primary-btn danger">End set</button>
+    </div>
+  </section>
+
+  <!-- ============ SCREEN 3: summary ============ -->
+  <section id="screen-summary" class="screen">
+    <header class="app-header">
+      <h1 class="summary-title">Set complete</h1>
+    </header>
+    <div class="summary-body">
+      <div class="summary-stat">
+        <div id="sum-reps" class="summary-big">0</div>
+        <div class="summary-label">reps counted</div>
+      </div>
+      <div id="sum-clean" class="summary-line"></div>
+      <div id="sum-flags" class="summary-flaglist"></div>
+      <div id="sum-cue" class="summary-cue"></div>
+    </div>
+    <div class="controls">
+      <button id="btn-again" class="primary-btn">New set</button>
+    </div>
+  </section>
+
+  <script src="config.js"></script>
+  <!-- MediaPipe Tasks Vision (PoseLandmarker / BlazePose) as an ES module from the CDN. -->
+  <script type="module" src="app.js"></script>
+</body>
+</html>

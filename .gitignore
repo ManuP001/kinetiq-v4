@@ -1,0 +1,34 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+
+# Node / tooling (none used at runtime, but keep noise out)
+node_modules/
+
+# Env / secrets — never commit
+.env
+.env.*
+*.key
+*.pem
+
+# Video / captures — NEVER commit raw video (golden set is keypoints + labels only)
+*.mp4
+*.mov
+*.avi
+*.webm
+evals/gate0/golden/**/*.mp4
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Build / reports
+gate0-full-report.txt
+dist/
+out/
