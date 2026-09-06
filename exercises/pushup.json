@@ -1,0 +1,76 @@
+{
+  "exercise_id": "pushup",
+  "display_name": "Push-up",
+  "vision_support": true,
+  "status": "needs_pt_confirmation",
+  "threshold_provenance": "Derived in a clean-room rebuild from the CLAUDE.md hierarchy alone. CLAUDE.md names no numeric threshold, and its Patterns to Follow say never to invent one -- so every value here is UNCONFIRMED and must be set by a PT before it gates anything. Do not treat these as the v4 production values.",
+  "camera_guidance": {
+    "side": "Full body side-on; shoulder, hip and ankle all visible.",
+    "front": "Not recommended -- the body line cannot be judged head-on."
+  },
+  "validity": {
+    "min_visibility": 0.5,
+    "min_visible_ratio": 0.6,
+    "required_landmarks": [
+      "left_shoulder",
+      "right_shoulder",
+      "left_elbow",
+      "right_elbow",
+      "left_wrist",
+      "right_wrist"
+    ]
+  },
+  "rep_signal": {
+    "type": "joint_angle",
+    "joints": [
+      "shoulder",
+      "elbow",
+      "wrist"
+    ],
+    "side": "auto",
+    "landmarks": [
+      "left_shoulder",
+      "right_shoulder",
+      "left_elbow",
+      "right_elbow",
+      "left_wrist",
+      "right_wrist"
+    ],
+    "down_enter_deg": 130.0,
+    "up_exit_deg": 160.0,
+    "min_rep_ms": 600,
+    "threshold_note": "down_enter_deg is the REP-DETECTION gate and must sit ABOVE the depth fault threshold (partial_rom), or a too-shallow rep is never counted and the fault can never fire."
+  },
+  "faults": {
+    "hip_sag": {
+      "severity": "high",
+      "cue": "Squeeze your glutes",
+      "check": "body_line_break",
+      "params": {
+        "deg": 160.0
+      },
+      "sustain_frames": 2,
+      "status": "needs_pt_confirmation"
+    },
+    "elbow_flare": {
+      "severity": "med",
+      "cue": "Tuck your elbows in",
+      "check": "elbow_abduction_above",
+      "params": {
+        "deg": 75.0
+      },
+      "sustain_frames": 2,
+      "status": "needs_pt_confirmation"
+    },
+    "partial_rom": {
+      "severity": "med",
+      "cue": "Go all the way down",
+      "check": "min_angle_above",
+      "params": {
+        "deg": 100.0
+      },
+      "sustain_frames": 2,
+      "status": "needs_pt_confirmation"
+    }
+  }
+}

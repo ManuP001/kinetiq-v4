@@ -1,0 +1,78 @@
+{
+  "exercise_id": "lunge",
+  "display_name": "Lunge",
+  "vision_support": true,
+  "status": "needs_pt_confirmation",
+  "threshold_provenance": "Derived in a clean-room rebuild from the CLAUDE.md hierarchy alone. CLAUDE.md names no numeric threshold, and its Patterns to Follow say never to invent one -- so every value here is UNCONFIRMED and must be set by a PT before it gates anything. Do not treat these as the v4 production values.",
+  "camera_guidance": {
+    "side": "Both legs visible; the split stance must not self-occlude.",
+    "front": "Good for knee tracking, poor for depth."
+  },
+  "validity": {
+    "min_visibility": 0.5,
+    "min_visible_ratio": 0.6,
+    "required_landmarks": [
+      "left_hip",
+      "right_hip",
+      "left_knee",
+      "right_knee",
+      "left_ankle",
+      "right_ankle"
+    ]
+  },
+  "rep_signal": {
+    "type": "joint_angle",
+    "joints": [
+      "hip",
+      "knee",
+      "ankle"
+    ],
+    "side": "auto",
+    "landmarks": [
+      "left_hip",
+      "right_hip",
+      "left_knee",
+      "right_knee",
+      "left_ankle",
+      "right_ankle"
+    ],
+    "down_enter_deg": 140.0,
+    "up_exit_deg": 160.0,
+    "min_rep_ms": 800,
+    "threshold_note": "down_enter_deg is the REP-DETECTION gate and must sit ABOVE the depth fault threshold (shallow_depth), or a too-shallow rep is never counted and the fault can never fire."
+  },
+  "faults": {
+    "shallow_depth": {
+      "severity": "med",
+      "cue": "Drop your back knee lower",
+      "check": "min_angle_above",
+      "params": {
+        "deg": 110.0
+      },
+      "sustain_frames": 2,
+      "status": "needs_pt_confirmation"
+    },
+    "front_knee_collapse": {
+      "severity": "high",
+      "cue": "Track knee over foot",
+      "check": "knee_valgus",
+      "params": {
+        "side": "auto",
+        "ratio": 0.85,
+        "min_hip_width_ratio": 0.15
+      },
+      "sustain_frames": 2,
+      "status": "needs_pt_confirmation"
+    },
+    "torso_lean": {
+      "severity": "med",
+      "cue": "Stay upright",
+      "check": "trunk_lean_above",
+      "params": {
+        "deg": 25.0
+      },
+      "sustain_frames": 2,
+      "status": "needs_pt_confirmation"
+    }
+  }
+}

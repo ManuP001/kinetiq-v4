@@ -1,0 +1,90 @@
+{
+  "exercise_id": "squat",
+  "display_name": "Squat",
+  "vision_support": true,
+  "status": "needs_pt_confirmation",
+  "threshold_provenance": "Derived in a clean-room rebuild from the CLAUDE.md hierarchy alone. CLAUDE.md names no numeric threshold, and its Patterns to Follow say never to invent one -- so every value here is UNCONFIRMED and must be set by a PT before it gates anything. Do not treat these as the v4 production values.",
+  "camera_guidance": {
+    "side": "Hips and knees fully in frame, camera at hip height.",
+    "front": "Whole body in frame; knee tracking needs both legs visible."
+  },
+  "validity": {
+    "min_visibility": 0.5,
+    "min_visible_ratio": 0.6,
+    "required_landmarks": [
+      "left_hip",
+      "right_hip",
+      "left_knee",
+      "right_knee",
+      "left_ankle",
+      "right_ankle"
+    ]
+  },
+  "rep_signal": {
+    "type": "joint_angle",
+    "joints": [
+      "hip",
+      "knee",
+      "ankle"
+    ],
+    "side": "auto",
+    "landmarks": [
+      "left_hip",
+      "right_hip",
+      "left_knee",
+      "right_knee",
+      "left_ankle",
+      "right_ankle"
+    ],
+    "down_enter_deg": 130.0,
+    "up_exit_deg": 160.0,
+    "min_rep_ms": 700,
+    "threshold_note": "down_enter_deg is the REP-DETECTION gate and must sit ABOVE the depth fault threshold (shallow_depth), or a too-shallow rep is never counted and the fault can never fire."
+  },
+  "faults": {
+    "shallow_depth": {
+      "severity": "med",
+      "cue": "Sit lower",
+      "check": "min_angle_above",
+      "params": {
+        "deg": 100.0
+      },
+      "sustain_frames": 2,
+      "status": "needs_pt_confirmation"
+    },
+    "knee_cave_left": {
+      "severity": "high",
+      "cue": "Push your left knee out",
+      "check": "knee_valgus",
+      "params": {
+        "side": "left",
+        "ratio": 0.85,
+        "min_hip_width_ratio": 0.15
+      },
+      "sustain_frames": 2,
+      "status": "needs_pt_confirmation"
+    },
+    "knee_cave_right": {
+      "severity": "high",
+      "cue": "Push your right knee out",
+      "check": "knee_valgus",
+      "params": {
+        "side": "right",
+        "ratio": 0.85,
+        "min_hip_width_ratio": 0.15
+      },
+      "sustain_frames": 2,
+      "status": "needs_pt_confirmation"
+    },
+    "excessive_forward_lean": {
+      "severity": "med",
+      "cue": "Chest up",
+      "check": "trunk_lean_above",
+      "params": {
+        "deg": 55.0
+      },
+      "sustain_frames": 2,
+      "status": "needs_pt_confirmation"
+    }
+  }
+}

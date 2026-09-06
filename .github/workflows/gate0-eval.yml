@@ -1,0 +1,77 @@
+# Stage-0 regression gate. The eval set is the executable spec: a change that
+# drops a tracked metric below its floor fails the build.
+name: gate0-eval
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "0 6 * * *"     # nightly full gate
+  workflow_dispatch: {}
+
+jobs:
+  fast-gate:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false          # report BOTH versions; one breaking must not hide the other
+      matrix:
+        python-version: ["3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install API deps
+        run: pip install -r evals/gate0/prototype_api/requirements.txt
+      - name: Unit tests
+        run: python -m unittest discover -s evals/gate0 -p "test_*.py"
+      - name: Fast gate
+        shell: bash
+        run: |
+          set -o pipefail
+          python evals/gate0/aggregate.py --golden evals/gate0/golden --mode fast
+      - name: Gate B smoke (API + real detector)
+        run: python evals/gate0/prototype_api/smoke_assess.py
+
+  full-gate:
+    # Not on pull_request by design -- requiring it as a status check would hang
+    # every PR on a job that never starts.
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r evals/gate0/prototype_api/requirements.txt
+      - name: Full gate
+        shell: bash
+        run: |
+          # `set -o pipefail` is load-bearing. GitHub's default shell reports the
+          # LAST command's status, so piping aggregate.py into tee would always
+          # report tee's 0 -- a failing gate would look green while gating nothing.
+          set -o pipefail
+          python evals/gate0/aggregate.py --golden evals/gate0/golden --mode full \
+            | tee gate0-full-report.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: gate0-full-report
+          path: gate0-full-report.txt
+
+  fixtures-are-reproducible:
+    # The golden fixtures are generated. If the generator and the committed JSON
+    # disagree, one of them is stale and the gate is scoring the wrong thing.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Regenerate and diff
+        run: |
+          cd evals/gate0/golden && python _generate_fixtures.py
+          cd "$GITHUB_WORKSPACE"
+          git diff --exit-code -- evals/gate0/golden \
+            || { echo "::error::golden fixtures differ from _generate_fixtures.py output"; exit 1; }

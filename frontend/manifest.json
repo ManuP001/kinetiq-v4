@@ -1,0 +1,14 @@
+{
+  "name": "Kinetiq",
+  "short_name": "Kinetiq",
+  "description": "Counts reps and flags form from your phone camera, on-device.",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0d0f13",
+  "theme_color": "#0d0f13",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}

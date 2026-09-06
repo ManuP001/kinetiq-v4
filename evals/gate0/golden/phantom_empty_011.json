@@ -1,0 +1,215 @@
+{
+ "clip_id": "phantom_empty_011",
+ "exercise_id": "squat",
+ "view": "side",
+ "clip_type": "phantom_empty",
+ "pt_verified": true,
+ "synthetic": true,
+ "notes": "No person in frame. Must not manufacture a rep.",
+ "ground_truth": {
+  "rep_count": 0,
+  "reps": []
+ },
+ "frames": [
+  {
+   "t_ms": 0,
+   "pose_model": "blazepose_33",
+   "people": []
+  },
+  {
+   "t_ms": 100,
+   "pose_model": "blazepose_33",
+   "people": []
+  },
+  {
+   "t_ms": 200,
+   "pose_model": "blazepose_33",
+   "people": []
+  },
+  {
+   "t_ms": 300,
+   "pose_model": "blazepose_33",
+   "people": []
+  },
+  {
+   "t_ms": 400,
+   "pose_model": "blazepose_33",
+   "people": []
+  },
+  {
+   "t_ms": 500,
+   "pose_model": "blazepose_33",
+   "people": []
+  },
+  {
+   "t_ms": 600,
+   "pose_model": "blazepose_33",
+   "people": []
+  },
+  {
+   "t_ms": 700,
+   "pose_model": "blazepose_33",
+   "people": []
+  },
+  {
+   "t_ms": 800,
+   "pose_model": "blazepose_33",
+   "people": []
+  },
+  {
+   "t_ms": 900,
+   "pose_model": "blazepose_33",
+   "people": []
+  },
+  {
+   "t_ms": 1000,
+   "pose_model": "blazepose_33",
+   "people": []
+  },
+  {
+   "t_ms": 1100,
+   "pose_model": "blazepose_33",
+   "people": []
+  },
+  {
+   "t_ms": 1200,
+   "pose_model": "blazepose_33",
+   "people": []
+  },
+  {
+   "t_ms": 1300,
+   "pose_model": "blazepose_33",
+   "people": []
+  },
+  {
+   "t_ms": 1400,
+   "pose_model": "blazepose_33",
+   "people": []
+  },
+  {
+   "t_ms": 1500,
+   "pose_model": "blazepose_33",
+   "people": []
+  },
+  {
+   "t_ms": 1600,
+   "pose_model": "blazepose_33",
+   "people": []
+  },
+  {
+   "t_ms": 1700,
+   "pose_model": "blazepose_33",
+   "people": []
+  },
+  {
+   "t_ms": 1800,
+   "pose_model": "blazepose_33",
+   "people": []
+  },
+  {
+   "t_ms": 1900,
+   "pose_model": "blazepose_33",
+   "people": []
+  },
+  {
+   "t_ms": 2000,
+   "pose_model": "blazepose_33",
+   "people": []
+  },
+  {
+   "t_ms": 2100,
+   "pose_model": "blazepose_33",
+   "people": []
+  },
+  {
+   "t_ms": 2200,
+   "pose_model": "blazepose_33",
+   "people": []
+  },
+  {
+   "t_ms": 2300,
+   "pose_model": "blazepose_33",
+   "people": []
+  },
+  {
+   "t_ms": 2400,
+   "pose_model": "blazepose_33",
+   "people": []
+  },
+  {
+   "t_ms": 2500,
+   "pose_model": "blazepose_33",
+   "people": []
+  },
+  {
+   "t_ms": 2600,
+   "pose_model": "blazepose_33",
+   "people": []
+  },
+  {
+   "t_ms": 2700,
+   "pose_model": "blazepose_33",
+   "people": []
+  },
+  {
+   "t_ms": 2800,
+   "pose_model": "blazepose_33",
+   "people": []
+  },
+  {
+   "t_ms": 2900,
+   "pose_model": "blazepose_33",
+   "people": []
+  },
+  {
+   "t_ms": 3000,
+   "pose_model": "blazepose_33",
+   "people": []
+  },
+  {
+   "t_ms": 3100,
+   "pose_model": "blazepose_33",
+   "people": []
+  },
+  {
+   "t_ms": 3200,
+   "pose_model": "blazepose_33",
+   "people": []
+  },
+  {
+   "t_ms": 3300,
+   "pose_model": "blazepose_33",
+   "people": []
+  },
+  {
+   "t_ms": 3400,
+   "pose_model": "blazepose_33",
+   "people": []
+  },
+  {
+   "t_ms": 3500,
+   "pose_model": "blazepose_33",
+   "people": []
+  },
+  {
+   "t_ms": 3600,
+   "pose_model": "blazepose_33",
+   "people": []
+  },
+  {
+   "t_ms": 3700,
+   "pose_model": "blazepose_33",
+   "people": []
+  },
+  {
+   "t_ms": 3800,
+   "pose_model": "blazepose_33",
+   "people": []
+  },
+  {
+   "t_ms": 3900,
+   "pose_model": "blazepose_33",
+   "people": []
+  }
+ ]
+}

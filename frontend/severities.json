@@ -1,0 +1,51 @@
+{
+  "_generated_by": "frontend/generate_severities.py -- do not edit by hand",
+  "exercises": {
+    "lunge": {
+      "front_knee_collapse": {
+        "severity": "high",
+        "cue": "Track knee over foot"
+      },
+      "shallow_depth": {
+        "severity": "med",
+        "cue": "Drop your back knee lower"
+      },
+      "torso_lean": {
+        "severity": "med",
+        "cue": "Stay upright"
+      }
+    },
+    "pushup": {
+      "elbow_flare": {
+        "severity": "med",
+        "cue": "Tuck your elbows in"
+      },
+      "hip_sag": {
+        "severity": "high",
+        "cue": "Squeeze your glutes"
+      },
+      "partial_rom": {
+        "severity": "med",
+        "cue": "Go all the way down"
+      }
+    },
+    "squat": {
+      "excessive_forward_lean": {
+        "severity": "med",
+        "cue": "Chest up"
+      },
+      "knee_cave_left": {
+        "severity": "high",
+        "cue": "Push your left knee out"
+      },
+      "knee_cave_right": {
+        "severity": "high",
+        "cue": "Push your right knee out"
+      },
+      "shallow_depth": {
+        "severity": "med",
+        "cue": "Sit lower"
+      }
+    }
+  }
+}

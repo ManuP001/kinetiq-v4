@@ -1,0 +1,35 @@
+# Render Blueprint -- BOTH services for the monorepo in one file.
+# See docs/DEPLOY_RUNBOOK.md for the ordered wiring steps; they are chicken-and-egg
+# because each service needs the other's URL. Every dashboard action is yours.
+services:
+  # 1) Detector API -- Docker web service. Build context is the REPO ROOT: the
+  #    detector's imports resolve by relative path arithmetic, so the image needs
+  #    evals/gate0/, backend/app/ and exercises/ at their real relative layout.
+  - type: web
+    name: kinetiq-v4-api
+    runtime: docker
+    dockerfilePath: ./evals/gate0/prototype_api/Dockerfile
+    dockerContext: .
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: PROTOTYPE_API_CORS_ORIGINS
+        sync: false
+        # Set in the dashboard to the PWA's exact HTTPS origin, e.g.
+        # https://kinetiq-v4-pwa.onrender.com -- NOT "*", no trailing slash, no path.
+
+  # 2) Camera PWA -- static site, no build step. Static sites don't spin down.
+  #    Point frontend/config.js at the API URL first (frontend/set-api-url.ps1),
+  #    commit, then deploy.
+  - type: web
+    name: kinetiq-v4-pwa
+    runtime: static
+    staticPublishPath: ./frontend
+    buildCommand: ""
+    headers:
+      - path: /*
+        name: Cross-Origin-Opener-Policy
+        value: same-origin
+      - path: /*
+        name: Referrer-Policy
+        value: no-referrer

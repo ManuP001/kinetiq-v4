@@ -1,0 +1,14 @@
+{
+  "exercise_id": "deadlift",
+  "display_name": "Deadlift",
+  "vision_support": false,
+  "status": "needs_pt_confirmation",
+  "threshold_provenance": "Derived in a clean-room rebuild from the CLAUDE.md hierarchy alone. CLAUDE.md names no numeric threshold, and its Patterns to Follow say never to invent one -- so every value here is UNCONFIRMED and must be set by a PT before it gates anything. Do not treat these as the v4 production values.",
+  "camera_guidance": {
+    "side": "Not yet specified -- exercise is not vision-live."
+  },
+  "validity": {},
+  "rep_signal": null,
+  "faults": {},
+  "note": "Contract placeholder. Not vision-live: no rep signal or fault checks are defined, so run_detector refuses this exercise rather than guessing."
+}
