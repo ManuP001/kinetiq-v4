@@ -32,3 +32,4 @@ Thumbs.db
 gate0-full-report.txt
 dist/
 out/
+.probe
