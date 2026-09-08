@@ -7,7 +7,7 @@
 window.KINETIQ_CONFIG = {
   // Empty string => same origin as the page + ":8000" is NOT assumed; we default to localhost:8000
   // for the local run. Overwrite with the full https origin for a deployed API.
-  API_BASE_URL: "http://localhost:8000",
+  API_BASE_URL: "https://kinetiq-v4-api.onrender.com",
 
   // How often we flush buffered keypoint frames to the detector API (ms). The API recomputes over
   // the whole buffer each call, so this trades latency against request volume. 400ms matches the

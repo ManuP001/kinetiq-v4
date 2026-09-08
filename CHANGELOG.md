@@ -4,6 +4,29 @@ All notable changes to the v4 monorepo. Format loosely per Keep a Changelog.
 
 ---
 
+## [Unreleased] — 2026-09-08 — first deploy wiring
+
+### Changed
+- `frontend/config.js`: `API_BASE_URL` now points at `https://kinetiq-v4-api.onrender.com`
+  instead of `http://localhost:8000`. On a phone, `localhost` means the phone itself, so the
+  deployed PWA had nothing to call — and an HTTPS page calling plain `http://` is blocked as
+  mixed content regardless. Set via `frontend/set-api-url.ps1`.
+
+### Deploy status (verified)
+- PWA static site is **live** at https://kinetiq-v4.onrender.com — index, `app.js`,
+  `config.js`, `styles.css`, `severities.json`, `manifest.json`, `sw.js` all serve 200.
+  Confirmed on a real Android phone: HTTPS, camera permission, MediaPipe load, exercise
+  picker and the API-unreachable retry state all work.
+- Detector API is **NOT yet deployed**. Until the service exists at the URL above, the PWA
+  will still show "Can't reach the trainer" — expected, not a regression.
+- `PROTOTYPE_API_CORS_ORIGINS` must be set to `https://kinetiq-v4.onrender.com` on the API
+  service, followed by a restart, before the browser can complete a call.
+
+### Note
+An earlier working-tree state had `evals/` missing from disk (109 files). Restored from
+commit 923406e; 301 tests, the Stage 0 gate and the Gate B smoke all re-verified green. No
+content was lost and no commit was affected.
+
 ## [0.1.0] — 2026-09-06 — self-contained monorepo + the real camera PWA
 
 The first version where the detector, eval harness, exercise contracts, detector API, and the live
