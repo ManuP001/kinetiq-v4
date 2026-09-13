@@ -1,0 +1,37 @@
+{
+  "//": [
+    "Tells Pylance / Pyright where this repo's import roots actually are.",
+    "",
+    "Without this, opening the repo root shows dozens of false 'Import could not",
+    "be resolved' errors across evals/gate0. The code is correct -- the modules",
+    "are imported flat (`from exercise_lib import ...`, `from detector.adapter",
+    "import ...`) and resolve because the harness runs with evals/gate0 on",
+    "sys.path, while gate_config.py additionally puts backend/ on sys.path so",
+    "`app.core.config` resolves. An editor opened at the repo root knows none of",
+    "that and flags every one of those imports.",
+    "",
+    "extraPaths mirrors the two roots the runtime actually uses:",
+    "  evals/gate0 -> exercise_lib, gate_config, golden_loader, detector, scorers",
+    "  backend     -> app.core.config, app.core.schemas (via gate_config)",
+    "",
+    "This file changes editor analysis only. It has no effect on runtime, the",
+    "tests, the eval gate, or the Docker image."
+  ],
+
+  "extraPaths": ["evals/gate0", "backend"],
+  "exclude": ["**/__pycache__", "**/.venv", "**/node_modules"],
+
+  "pythonVersion": "3.12",
+  "typeCheckingMode": "basic",
+
+  "reportMissingImports": "error",
+
+  "//optional-deps": [
+    "The pose_capture adapters probe for mediapipe / tensorflow / tensorflow_hub",
+    "/ rtmlib inside try-except ImportError to report whether a runtime is",
+    "installed. They are deliberately absent from requirements.txt -- the offline",
+    "detector path is stdlib-only and the API image carries no pose runtime at",
+    "all (the privacy invariant). Flagging them as missing is noise."
+  ],
+  "reportMissingModuleSource": "none"
+}

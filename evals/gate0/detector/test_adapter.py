@@ -9,7 +9,6 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from detector.adapter import (  # noqa: E402
-    DetectorConfig,
     run_detector,
     score_subject_lock_against_expected,
 )
