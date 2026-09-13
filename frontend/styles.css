@@ -80,3 +80,25 @@ body{overflow:hidden}
 .summary-line{font-size:16px;color:var(--text)}
 .summary-flaglist{display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
 .summary-cue{color:var(--muted);font-size:15px;text-align:center;max-width:340px}
+
+
+/* ---- connection banner -------------------------------------------------
+   Non-blocking on purpose. A cold Render instance takes up to a minute to
+   wake, and the set must keep recording underneath: frames are buffered and
+   replayed, so the rep count catches up rather than losing reps. */
+.conn-banner {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  top: 56px;
+  z-index: 5;
+  background: rgba(58, 42, 18, 0.92);
+  border: 1px solid #6b4b16;
+  color: #fde68a;
+  border-radius: 10px;
+  padding: 9px 12px;
+  font-size: 13px;
+  line-height: 1.35;
+  text-align: center;
+  backdrop-filter: blur(2px);
+}

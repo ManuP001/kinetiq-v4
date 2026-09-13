@@ -4,6 +4,31 @@ All notable changes to the v4 monorepo. Format loosely per Keep a Changelog.
 
 ---
 
+## [Unreleased] — 2026-09-13 — PWA survives a cold start
+
+### Fixed
+- **"Can't reach the trainer" on the first rep of a session.** Render's free tier sleeps a
+  web service after ~15 min idle and the next request pays a 30-60s cold start, which lands
+  on the first POST of a set. `flush()` treated that single failure as fatal and blocked the
+  user on an error screen requiring a manual Retry. It now:
+  - **Pre-warms on load** — `/health` is pinged when the app opens, so the server is usually
+    awake by the time an exercise is picked.
+  - **Wakes before the set** — after camera start, polls `/health` (90s budget) behind a
+    "Waking the coach" message. Does not block: on timeout the set starts anyway and frames
+    buffer.
+  - **Retries with backoff** — the first 10 failures back off 1s→8s behind a non-blocking
+    amber banner while recording continues; only sustained failure interrupts.
+  - **Guards against stacked POSTs** — an in-flight flag stops the 400ms timer piling
+    concurrent requests onto a booting server.
+  - Frames are still never dropped: they re-queue and replay, so the rep count catches up.
+
+### Verified
+- `/health` confirmed to return `access-control-allow-origin` for the PWA origin, so the
+  browser can read the pre-warm response (not just wake the server blindly).
+- 301 tests OK; Stage 0 gate PASS; Gate B smoke PASS. No detector logic or thresholds touched.
+
+---
+
 ## [Unreleased] — 2026-09-08 — first deploy wiring
 
 ### Changed

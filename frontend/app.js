@@ -42,6 +42,25 @@ let lastResponse = null;
 let lastVideoTs = -1;
 let postTimer = null;
 
+// ---- connection resilience -------------------------------------------------
+// Render's free tier puts a web service to sleep after ~15 min idle, and the
+// next request pays a 30-60s cold start. That lands on the FIRST request of a
+// session -- exactly when someone is standing in front of the camera. Without
+// this, one failed POST during wake-up dumped the user on a blocking error.
+//
+// Two defences: wake the server before the set starts, and treat early POST
+// failures as "not awake yet" (retry with backoff, keep recording) rather than
+// as a dead end. Frames are never dropped -- they re-queue and replay, so the
+// rep count catches up once the server answers.
+let apiWarm = false;         // has /health answered since page load?
+let flushInFlight = false;   // a POST is outstanding -- don't stack another on it
+let failStreak = 0;          // consecutive failed flushes
+let nextAttemptAt = 0;       // backoff gate, performance.now() ms
+const HEALTH_TIMEOUT_MS = 12000;   // one /health probe
+const WAKE_TIMEOUT_MS = 90000;     // total budget for waking a sleeping instance
+const HARD_FAIL_AFTER = 10;        // give up quietly retrying, ask the user
+const BACKOFF_MAX_MS = 8000;
+
 // ---------------------------------------------------------------------------
 // screens
 function show(name) {
@@ -143,12 +162,73 @@ function loop() {
 }
 
 // ---------------------------------------------------------------------------
+// non-blocking connection notice (the set keeps running underneath it)
+function banner(msg) {
+  const el = $("conn-banner");
+  if (!el) return;
+  if (msg) {
+    el.textContent = msg;
+    el.hidden = false;
+  } else {
+    el.hidden = true;
+  }
+}
+
+// A cheap GET that tells us whether the instance is awake. Uses AbortController
+// because a sleeping Render instance holds the connection open rather than
+// refusing it -- without a timeout this would hang instead of retrying.
+async function pingHealth(timeoutMs = HEALTH_TIMEOUT_MS) {
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), timeoutMs);
+  try {
+    const res = await fetch(`${API}/health`, { signal: ctrl.signal, cache: "no-store" });
+    return res.ok;
+  } catch {
+    return false;
+  } finally {
+    clearTimeout(t);
+  }
+}
+
+// Poll /health until the instance answers or the budget runs out.
+async function wakeApi(onProgress) {
+  if (apiWarm) return true;
+  const deadline = performance.now() + WAKE_TIMEOUT_MS;
+  let attempt = 0;
+  while (performance.now() < deadline) {
+    attempt++;
+    if (onProgress) {
+      const secs = Math.round((performance.now() - (deadline - WAKE_TIMEOUT_MS)) / 1000);
+      onProgress(
+        attempt === 1
+          ? "Waking the server — this can take up to a minute on the free plan."
+          : `Still waking… ${secs}s. Your reps are being recorded either way.`
+      );
+    }
+    if (await pingHealth()) {
+      apiWarm = true;
+      return true;
+    }
+    await new Promise((r) => setTimeout(r, 2000));
+  }
+  return false;
+}
+
+// ---------------------------------------------------------------------------
 // POST buffered frames to the detector API
 async function flush() {
   if (!running) return;
   if (frameBuffer.length === 0) return;
+
+  // A cold start can take 30-60s while the post timer keeps firing every 400ms.
+  // Without this guard we would stack dozens of concurrent POSTs onto a server
+  // that is still booting, and each would carry a different slice of the buffer.
+  if (flushInFlight) return;
+  if (performance.now() < nextAttemptAt) return;
+
   const frames = frameBuffer;
   frameBuffer = [];
+  flushInFlight = true;
   const body = {
     session_id: sessionId,
     exercise_id: exercise,
@@ -168,11 +248,49 @@ async function flush() {
     firstPost = false;
     lastResponse = await res.json();
     render(lastResponse);
+
+    // Recovered: drop the retry state and any notice we were showing.
+    apiWarm = true;
+    failStreak = 0;
+    nextAttemptAt = 0;
+    banner(null);
     clearState();
   } catch (err) {
-    // Re-queue the frames we pulled so nothing is silently lost (the whole project's discipline).
+    // Re-queue the frames we pulled so nothing is silently lost (the whole
+    // project's discipline). They replay on the next successful POST and the
+    // rep count catches up.
     frameBuffer = frames.concat(frameBuffer);
-    setState("Can't reach the trainer", String(err.message || err), "Retry", () => clearState());
+    failStreak++;
+
+    if (failStreak < HARD_FAIL_AFTER) {
+      // Probably a cold start, not a dead server. Back off and keep recording
+      // instead of blocking the user on an error screen.
+      const delay = Math.min(1000 * 2 ** (failStreak - 1), BACKOFF_MAX_MS);
+      nextAttemptAt = performance.now() + delay;
+      banner(
+        apiWarm
+          ? "Lost the coach — still recording, will catch up."
+          : "Waking the server — still recording, your reps will catch up."
+      );
+    } else {
+      // Sustained failure: now it is worth interrupting.
+      banner(null);
+      setState(
+        "Can't reach the trainer",
+        String(err.message || err),
+        "Retry",
+        async () => {
+          failStreak = 0;
+          nextAttemptAt = 0;
+          clearState();
+          banner("Reconnecting…");
+          const ok = await wakeApi((m) => banner(m));
+          banner(ok ? null : "Still no answer — check your connection.");
+        }
+      );
+    }
+  } finally {
+    flushInFlight = false;
   }
 }
 
@@ -243,6 +361,10 @@ async function startSet(ex) {
   frameBuffer = [];
   lastResponse = null;
   lastVideoTs = -1;
+  failStreak = 0;
+  nextAttemptAt = 0;
+  flushInFlight = false;
+  banner(null);
   $("hud-exercise").textContent = ex;
   $("rep-count").textContent = "0";
   $("phase").textContent = "—";
@@ -255,7 +377,19 @@ async function startSet(ex) {
     await loadModel();
     setState("Camera", "Allow camera access to begin. Video stays on your device.");
     await startCamera();
-    clearState();
+
+    // Wake the detector before the first rep rather than discovering it is
+    // asleep mid-set. We do NOT block the set on this: if it times out we start
+    // anyway, buffer frames, and let flush() keep retrying -- losing the first
+    // few reps of a set is worse than showing a notice.
+    if (!apiWarm) {
+      setState("Waking the coach", "The free server sleeps when idle. First start can take a minute.");
+      const awake = await wakeApi((m) => setState("Waking the coach", m));
+      clearState();
+      if (!awake) banner("Server still waking — your reps are being recorded and will catch up.");
+    } else {
+      clearState();
+    }
   } catch (err) {
     if (err && (err.name === "NotAllowedError" || err.name === "SecurityError")) {
       setState(
@@ -290,6 +424,7 @@ function backToPicker() {
   clearInterval(postTimer);
   stopCamera();
   clearState();
+  banner(null);
   show("picker");
 }
 
@@ -333,6 +468,11 @@ $("btn-back").addEventListener("click", backToPicker);
 $("btn-again").addEventListener("click", () => show("picker"));
 
 loadSeverities();
+
+// Pre-warm the detector the moment the app opens. By the time someone has read
+// the picker and chosen an exercise, a sleeping instance has usually finished
+// booting -- which turns the most common cold start into no wait at all.
+wakeApi().catch(() => {});
 
 // register service worker (offline shell; pose model + API still need network)
 if ("serviceWorker" in navigator) {
