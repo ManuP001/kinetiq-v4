@@ -475,6 +475,20 @@ loadSeverities();
 wakeApi().catch(() => {});
 
 // register service worker (offline shell; pose model + API still need network)
+//
+// update() is forced on every load, and a new worker that takes control triggers
+// exactly one reload. Without this, a browser that already had the old
+// cache-first worker could keep serving a stale app.js/config.js indefinitely --
+// which is precisely how a deployed API URL fix stayed invisible for days.
 if ("serviceWorker" in navigator) {
-  navigator.serviceWorker.register("sw.js").catch(() => {});
+  let reloadedForUpdate = false;
+  navigator.serviceWorker.addEventListener("controllerchange", () => {
+    if (reloadedForUpdate) return;
+    reloadedForUpdate = true;
+    window.location.reload();
+  });
+  navigator.serviceWorker
+    .register("sw.js")
+    .then((reg) => reg.update().catch(() => {}))
+    .catch(() => {});
 }

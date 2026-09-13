@@ -4,6 +4,38 @@ All notable changes to the v4 monorepo. Format loosely per Keep a Changelog.
 
 ---
 
+## [Unreleased] — 2026-09-13 — stale service worker pinned the old app shell
+
+### Fixed — this was the real cause of "Can't reach the trainer"
+`sw.js` was **cache-first with a fixed cache name** (`kinetiq-v4-shell-v1`):
+
+    caches.match(req).then((hit) => hit || fetch(req))
+
+Once a browser had opened the site, `app.js` and `config.js` were pinned in that cache
+permanently. `activate` only deletes caches whose name differs from the current one, and the
+name never changed — so **every redeploy was invisible** to anyone who had visited before.
+A browser stuck on the original `config.js` kept calling `http://localhost:8000`, which is
+unreachable from a phone and blocked as mixed content from an HTTPS page: exactly the
+observed "Failed to fetch". The server was never contacted at all.
+
+- `sw.js` is now **network-first** for the same-origin shell, with the cache written on every
+  good response and served only when the network fails. Offline still works; a redeploy is
+  no longer invisible. Correctness beats the few ms cache-first saved, for an app that
+  redeploys often and whose API URL lives inside the shell.
+- Cache bumped to `kinetiq-v4-shell-v2` so `activate` evicts the poisoned v1.
+- `app.js` forces `registration.update()` on load and reloads once on `controllerchange`, so
+  a new worker takes effect immediately instead of on some later visit.
+- CDN and API requests are still never intercepted.
+
+### Ruled out during diagnosis (all verified healthy)
+- CORS: preflight returns `allow-origin` for the PWA origin, `allow-methods: POST`, and
+  `allow-headers: …Content-Type`.
+- API: `/health` 200 and a real `/prototype/assess` POST 200, both with the PWA `Origin` set.
+- The earlier cold-start work (`fce5478`) was a genuine robustness gain but was **not** the
+  cause of this error.
+
+---
+
 ## [Unreleased] — 2026-09-13 — PWA survives a cold start
 
 ### Fixed
