@@ -95,6 +95,23 @@ async def _handle_detector_request_error(
     return JSONResponse(status_code=exc.status_code, content={"error": exc.error, "detail": exc.detail})
 
 
+@app.exception_handler(Exception)
+async def _handle_unexpected_error(request: Request, exc: Exception) -> JSONResponse:
+    """Return unexpected failures as JSON THROUGH the middleware stack.
+
+    Starlette's default 500 is raised above CORSMiddleware, so it reaches a
+    browser with no Access-Control-Allow-Origin -- which the browser reports as
+    a generic "Failed to fetch", hiding the real error entirely. That cost days
+    of debugging a KeyError that the server knew about all along. Handling it
+    here keeps the CORS headers on, so the client can actually read the reason.
+    """
+    logging.exception("unhandled error in %s", request.url.path)
+    return JSONResponse(
+        status_code=500,
+        content={"error": "internal_error", "detail": f"{type(exc).__name__}: {exc}"},
+    )
+
+
 def _validate_frames(frames: List[Dict[str, Any]]) -> None:
     """Every frame must pass the SAME schema check the golden set is frozen against -- reused,
     not duplicated (import, don't reimplement). This is also what rejects a request that isn't
@@ -104,6 +121,30 @@ def _validate_frames(frames: List[Dict[str, Any]]) -> None:
             validate_frame_schema(frame, context=f"frame {i}")
         except ValueError as exc:
             raise DetectorRequestError(422, "invalid_frame", str(exc)) from exc
+
+        # `box` is required in practice but NOT covered by validate_frame_schema:
+        # subject_lock._select_initial_subject indexes p["box"] unconditionally
+        # (via geometry.bbox_area) to choose who to coach. A frame without it
+        # validated cleanly and then raised KeyError('box') deep in the detector
+        # -- a bare 500 which, carrying no CORS header, reached the browser only
+        # as "Failed to fetch". Reject it here, where we can say what is wrong.
+        for j, person in enumerate(frame.get("people") or []):
+            box = person.get("box")
+            if box is None:
+                raise DetectorRequestError(
+                    422, "missing_box",
+                    f"frame {i}, person {j}: 'box' is required -- the detector selects the "
+                    "subject by bounding-box area. Send [x, y, w, h] normalised to the "
+                    "frame (derive it from the keypoint extremes if your pose model does "
+                    "not supply one).",
+                )
+            if not isinstance(box, (list, tuple)) or len(box) != 4 or not all(
+                isinstance(v, (int, float)) for v in box
+            ):
+                raise DetectorRequestError(
+                    422, "invalid_box",
+                    f"frame {i}, person {j}: 'box' must be four numbers [x, y, w, h], got {box!r}",
+                )
 
 
 def _cue_warning(current_flags: List[str], cue: CueResult) -> str | None:

@@ -4,6 +4,40 @@ All notable changes to the v4 monorepo. Format loosely per Keep a Changelog.
 
 ---
 
+## [Unreleased] — 2026-09-13 — THE root cause: the PWA never sent `box`
+
+### Fixed — the actual reason the live prototype never worked
+`frontend/app.js` built `people: [{track_id, kp}]` with **no `box`**. The detector's
+subject-lock selects who to coach by bounding-box area and indexes `p["box"]`
+unconditionally (`detector/subject_lock.py:56` -> `geometry.bbox_area`). `box` is not
+covered by `validate_frame_schema`, so the frame validated cleanly, reached the detector,
+and raised `KeyError: 'box'`. Starlette raises that 500 ABOVE `CORSMiddleware`, so it
+arrived at the browser with no `Access-Control-Allow-Origin` — and a browser reports a
+CORS-less error only as **"Failed to fetch"**. The real cause was invisible from the client.
+
+- `buildFrame` now derives and sends `box` as `[x, y, w, h]` from the visible keypoint
+  extremes (MediaPipe supplies landmarks but no box), matching the golden fixtures.
+- `z` is emitted as `0` rather than `null` when the model omits it.
+
+### Added — the test gap that let this ship
+`prototype_api/test_pwa_frame_contract.py` (5 tests) exercises the PWA's exact on-the-wire
+payload. Every existing test missed this because they all feed frames that already carry a
+`box`: the harness reads golden fixtures, `smoke_assess.py` replays those fixtures, and
+`check_local.sh` posts a hand-written probe that includes one. The single shape nobody
+tested was the one the real client actually sends.
+
+### Hardened — so the next failure is legible
+- `_validate_frames` rejects a missing or malformed `box` as **422** with a message naming
+  the field, instead of letting it crash the detector.
+- A catch-all exception handler returns unexpected errors as JSON **through** the middleware
+  stack, so a 500 keeps its CORS headers and the client can read the reason.
+
+### Verified
+306 tests OK (301 + 5 new); Stage 0 gate PASS; Gate B smoke PASS. No detector logic or
+thresholds touched — the fix is in the client's frame builder and the API's input validation.
+
+---
+
 ## [Unreleased] — 2026-09-13 — stale service worker pinned the old app shell
 
 ### Fixed — this was the real cause of "Can't reach the trainer"

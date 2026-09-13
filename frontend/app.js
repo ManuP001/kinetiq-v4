@@ -133,14 +133,43 @@ function buildFrame(landmarks, tMs) {
   const kp = landmarks.map((p) => [
     +p.x.toFixed(5),
     +p.y.toFixed(5),
-    p.z == null ? null : +p.z.toFixed(5),
+    p.z == null ? 0 : +p.z.toFixed(5),
     +(p.visibility ?? 0).toFixed(4),
   ]);
   return {
     t_ms: Math.round(tMs),
     pose_model: CFG.POSE_MODEL,
-    people: [{ track_id: 0, kp }],
+    people: [{ track_id: 0, kp, box: bboxOf(kp) }],
   };
+}
+
+// The detector's subject-lock picks its subject by bounding-box area
+// (detector/subject_lock.py -> geometry.bbox_area), so `box` is REQUIRED even
+// with a single person in frame. validate_frame_schema does not check for it,
+// so omitting it passed validation and then raised KeyError('box') deep in the
+// detector -- surfacing in the browser as a bare 500 with no CORS header, i.e.
+// "Failed to fetch". MediaPipe gives landmarks but no box, so we derive one.
+//
+// Format is [x, y, w, h], normalized, matching the golden fixtures.
+function bboxOf(kp) {
+  let x0 = 1, y0 = 1, x1 = 0, y1 = 0, seen = 0;
+  for (const [x, y, , vis] of kp) {
+    if (vis < 0.3) continue; // ignore landmarks MediaPipe is guessing at
+    seen++;
+    if (x < x0) x0 = x;
+    if (y < y0) y0 = y;
+    if (x > x1) x1 = x;
+    if (y > y1) y1 = y;
+  }
+  if (seen === 0) return [0, 0, 0, 0]; // nobody visible; subject-lock treats it as no subject
+  const clamp = (v) => Math.max(0, Math.min(1, v));
+  x0 = clamp(x0); y0 = clamp(y0); x1 = clamp(x1); y1 = clamp(y1);
+  return [
+    +x0.toFixed(5),
+    +y0.toFixed(5),
+    +(x1 - x0).toFixed(5),
+    +(y1 - y0).toFixed(5),
+  ];
 }
 
 // ---------------------------------------------------------------------------
