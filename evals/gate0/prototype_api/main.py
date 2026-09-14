@@ -164,7 +164,15 @@ def health() -> Dict[str, Any]:
     behind a tunnel or a hosted web service, `curl <url>/health` (or just open it in a phone
     browser -- a plain navigation, not a CORS-governed fetch) should return 200 before you ever
     point the PWA at it. See prototype_api/README.md's deploy section and check_local.sh."""
-    return {"status": "ok", "service": "kinetiq-v3-prototype-detector-api", "supported_exercises": SUPPORTED_EXERCISES}
+    return {
+        "status": "ok",
+        "service": "kinetiq-v3-prototype-detector-api",
+        "supported_exercises": SUPPORTED_EXERCISES,
+        # Published so the PWA can roll to a fresh session BEFORE this cap rather than
+        # discovering it as an unrecoverable 413 -- and reads it from here instead of
+        # restating the number in JavaScript (config.py stays the single source).
+        "session_max_frames": gate_config.PROTOTYPE_SESSION_MAX_FRAMES,
+    }
 
 
 @app.post("/prototype/assess", response_model=AssessResponse)

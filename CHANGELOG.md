@@ -4,6 +4,49 @@ All notable changes to the v4 monorepo. Format loosely per Keep a Changelog.
 
 ---
 
+## [Unreleased] — 2026-09-14 — sets longer than ~2 minutes no longer die
+
+### Fixed — "Can't reach the trainer" partway through a set
+Diagnosed from a 27-minute session's Network tab plus load tests against the live API:
+
+1. **The session cap was a dead end.** The API holds at most `PROTOTYPE_SESSION_MAX_FRAMES`
+   (3,600 ≈ 2 min at 30fps) per session and answers every later request with **413**. The app
+   treated 413 like an outage: it re-queued the frames and retried into the same full session
+   forever. Reproduced: first 413 at exactly ~120s, then permanent.
+2. **Every retry grew.** Re-queued frames were resent on each attempt, so the body grew without
+   bound — 2.2 MB one minute after the cap, tens of MB by 27 min.
+3. **Sessions were never freed.** ~20 MB per full session, held until process death, on a 512 MB
+   free-tier instance. The live API was observed returning **502** (Render's own HTML page,
+   no CORS header → "Failed to fetch") and apparently restarting mid-test. Consistent with
+   memory exhaustion from 1–3; not confirmed without Render logs.
+
+### Changed
+- **`frontend/segments.js` (new):** one visible set now spans as many server sessions as needed.
+  The app rolls to a fresh session at 80% of the cap **only between reps** (`rep_in_progress ==
+  false`), force-rolls at 95%, and carries the rep count and per-rep records forward. A 413 now
+  triggers a roll-and-resend instead of a retry loop. The detector is untouched: each segment is
+  scored by the same `run_detector`; the tracker only sums what the API returns.
+- **Bounded retry queue:** capped at one server session of frames. Anything shed during a long
+  outage is disclosed on the summary screen rather than silently lowering the count.
+- **`/health` publishes `session_max_frames`**, so the cap stays single-sourced in `config.py`.
+- **Idle + LRU session eviction** (`PROTOTYPE_SESSION_IDLE_TTL_S` = 300s,
+  `PROTOTYPE_MAX_SESSIONS` = 12): bounds worst-case memory to ~250 MB.
+- **Fixed a pre-existing bug:** `stopSet` set `running = false` before its "final flush", and
+  `flush()` returns when `!running` — so the tail of every set was never sent. It now waits for
+  any in-flight POST and delivers the remainder.
+- `sw.js` precaches `segments.js`; cache bumped to `shell-v3`.
+- CI runs the new JS tests.
+
+### Verified
+- 27-minute set driven by the real `segments.js` against a running API: **4,050/4,050 requests
+  200, zero 413**, 17 server sessions, **648 of 648 reps counted — none lost at any of the 16
+  roll boundaries**, 0 frames dropped.
+- Same set with the old behaviour: first failure at ~120s, 413 thereafter, body growing each retry.
+- 314 Python tests OK (306 + 7 eviction + 1 health); 10 JS tests OK; Stage 0 gate PASS; Gate B
+  smoke PASS. No detection logic or thresholds touched.
+
+---
+
 ## [Unreleased] — 2026-09-13 — THE root cause: the PWA never sent `box`
 
 ### Fixed — the actual reason the live prototype never worked

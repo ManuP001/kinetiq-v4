@@ -17,4 +17,11 @@ window.KINETIQ_CONFIG = {
   // Pose model tag the detector keys its keypoint map on. Must stay "blazepose_33" — that is the
   // MediaPipe PoseLandmarker landmark order the detector's keypoint_map.py expects.
   POSE_MODEL: "blazepose_33",
+
+  // Session roll-over, as fractions of the server's per-session frame cap (the cap itself is
+  // read from GET /health -> session_max_frames, never restated here). At SESSION_ROLL_AT the
+  // app starts a fresh server session, but only between reps so no rep is split. At
+  // SESSION_FORCE_ROLL_AT it rolls regardless: splitting one rep beats an unrecoverable 413.
+  SESSION_ROLL_AT: 0.8,
+  SESSION_FORCE_ROLL_AT: 0.95,
 };

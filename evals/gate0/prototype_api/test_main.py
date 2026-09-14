@@ -13,6 +13,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from fastapi.testclient import TestClient  # noqa: E402
 
+import gate_config  # noqa: E402
+
 from prototype_api.main import _buffers, app  # noqa: E402
 from prototype_api.session_buffer import SessionBufferStore  # noqa: E402
 
@@ -236,3 +238,11 @@ class TestCoachingCue(PrototypeApiTestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestHealthPublishesSessionCap(PrototypeApiTestCase):
+    def test_health_publishes_the_session_frame_cap_from_config(self):
+        """The PWA rolls sessions before this cap; it must read the number from the server,
+        never restate it in JS, so config.py remains the single source of truth."""
+        body = self.client.get("/health").json()
+        self.assertEqual(body["session_max_frames"], gate_config.PROTOTYPE_SESSION_MAX_FRAMES)

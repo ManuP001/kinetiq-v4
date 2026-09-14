@@ -41,6 +41,10 @@ jobs:
         run: python -m unittest discover -s evals/gate0 -p "test_*.py" -v
       - name: Fast gate (assertions + rep-acc on golden subset)
         run: python evals/gate0/aggregate.py --golden evals/gate0/golden --mode fast
+      # The PWA's session roll-over logic. A regression here silently kills any set longer than
+      # ~2 minutes (unrecoverable 413s), which no Python test would notice.
+      - name: PWA segment tests (session roll-over + queue bound)
+        run: node --test frontend/segments.test.mjs
 
   # Full gate: + form precision/recall, subject-lock, view robustness. More expensive (label-based
   # evals, Ch 39's 70/30 rule), so it runs on merge to main and nightly, not on every PR.

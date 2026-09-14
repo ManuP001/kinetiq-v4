@@ -14,6 +14,7 @@ import {
   PoseLandmarker,
   FilesetResolver,
 } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.mjs";
+import { createSetTracker, boundQueue } from "./segments.js";
 
 const CFG = window.KINETIQ_CONFIG;
 const API = CFG.API_BASE_URL.replace(/\/+$/, "");
@@ -53,6 +54,9 @@ let postTimer = null;
 // as a dead end. Frames are never dropped -- they re-queue and replay, so the
 // rep count catches up once the server answers.
 let apiWarm = false;         // has /health answered since page load?
+let sessionMaxFrames = null; // server's per-session frame cap, from /health (null = unknown)
+let tracker = null;          // keeps one visible set continuous across server sessions
+let droppedFrames = 0;       // frames shed from an over-long outage queue (see boundQueue)
 let flushInFlight = false;   // a POST is outstanding -- don't stack another on it
 let failStreak = 0;          // consecutive failed flushes
 let nextAttemptAt = 0;       // backoff gate, performance.now() ms
@@ -211,6 +215,14 @@ async function pingHealth(timeoutMs = HEALTH_TIMEOUT_MS) {
   const t = setTimeout(() => ctrl.abort(), timeoutMs);
   try {
     const res = await fetch(`${API}/health`, { signal: ctrl.signal, cache: "no-store" });
+    if (res.ok) {
+      try {
+        const h = await res.json();
+        if (Number.isFinite(h.session_max_frames)) sessionMaxFrames = h.session_max_frames;
+      } catch {
+        // an older API without the field: fine, we fall back to reacting to a 413
+      }
+    }
     return res.ok;
   } catch {
     return false;
@@ -244,9 +256,22 @@ async function wakeApi(onProgress) {
 }
 
 // ---------------------------------------------------------------------------
+// server sessions: one visible set may span several (see segments.js)
+function newSessionId() {
+  return `sess-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+function rollSession() {
+  tracker.roll();
+  sessionId = newSessionId();
+  firstPost = true; // reset:true opens the fresh server session cleanly
+}
+
+// ---------------------------------------------------------------------------
 // POST buffered frames to the detector API
-async function flush() {
-  if (!running) return;
+async function flush({ final = false } = {}) {
+  // `final` lets stopSet deliver the last frames after `running` is already false; without it
+  // the "final flush" returned immediately and the tail of every set was never scored.
+  if (!running && !final) return;
   if (frameBuffer.length === 0) return;
 
   // A cold start can take 30-60s while the post timer keeps firing every 400ms.
@@ -255,8 +280,24 @@ async function flush() {
   if (flushInFlight) return;
   if (performance.now() < nextAttemptAt) return;
 
-  const frames = frameBuffer;
-  frameBuffer = [];
+  // Never let an outage grow the queue past one server session's worth: beyond that every
+  // retry is a bigger body than the last, and those frames could never be scored anyway.
+  const bounded = boundQueue(frameBuffer, sessionMaxFrames);
+  frameBuffer = bounded.frames;
+  droppedFrames += bounded.dropped;
+
+  // Roll to a fresh server session BEFORE this one fills (between reps where possible),
+  // instead of discovering the cap as a 413 that no retry can get past.
+  if (tracker.shouldRoll(frameBuffer.length)) rollSession();
+
+  // Send only what the current session can still accept; the rest waits for the next flush.
+  const take = Math.min(frameBuffer.length, tracker.capacity());
+  if (take <= 0) {
+    rollSession();
+    return;
+  }
+  const frames = frameBuffer.slice(0, take);
+  frameBuffer = frameBuffer.slice(take);
   flushInFlight = true;
   const body = {
     session_id: sessionId,
@@ -272,10 +313,13 @@ async function flush() {
     });
     if (!res.ok) {
       const txt = await res.text();
-      throw new Error(`API ${res.status}: ${txt.slice(0, 140)}`);
+      const e = new Error(`API ${res.status}: ${txt.slice(0, 140)}`);
+      e.status = res.status;
+      throw e;
     }
     firstPost = false;
     lastResponse = await res.json();
+    tracker.acknowledge(frames.length, lastResponse);
     render(lastResponse);
 
     // Recovered: drop the retry state and any notice we were showing.
@@ -289,6 +333,15 @@ async function flush() {
     // project's discipline). They replay on the next successful POST and the
     // rep count catches up.
     frameBuffer = frames.concat(frameBuffer);
+
+    if (err && err.status === 413) {
+      // The server session is full (e.g. the cap was unknown, or a stale session). Nothing
+      // is wrong with the connection: open a fresh session and resend on the next tick. The
+      // server appends nothing on a 413, so no frame is double-counted.
+      rollSession();
+      return;
+    }
+
     failStreak++;
 
     if (failStreak < HARD_FAIL_AFTER) {
@@ -326,7 +379,7 @@ async function flush() {
 // ---------------------------------------------------------------------------
 // render a response
 function render(r) {
-  $("rep-count").textContent = r.rep_count;
+  $("rep-count").textContent = tracker ? tracker.totalReps() : r.rep_count;
   $("phase").textContent = r.phase || "—";
 
   const lock = $("hud-lock");
@@ -385,8 +438,13 @@ function drawSkeleton(lm) {
 // start / stop a set
 async function startSet(ex) {
   exercise = ex;
-  sessionId = `sess-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  sessionId = newSessionId();
   firstPost = true;
+  droppedFrames = 0;
+  tracker = createSetTracker(() => sessionMaxFrames, {
+    rollAt: CFG.SESSION_ROLL_AT,
+    forceRollAt: CFG.SESSION_FORCE_ROLL_AT,
+  });
   frameBuffer = [];
   lastResponse = null;
   lastVideoTs = -1;
@@ -442,7 +500,9 @@ async function stopSet() {
   running = false;
   clearInterval(postTimer);
   postTimer = null;
-  await flush(); // final flush so the last reps are counted
+  // Wait out any POST already in flight, then deliver whatever is still queued.
+  for (let i = 0; i < 50 && flushInFlight; i++) await new Promise((r) => setTimeout(r, 100));
+  await flush({ final: true }); // final flush so the last reps are counted
   stopCamera();
   octx.clearRect(0, 0, overlay.width, overlay.height);
   renderSummary(lastResponse);
@@ -460,8 +520,9 @@ function backToPicker() {
 // ---------------------------------------------------------------------------
 // summary from the accumulated reps[]
 function renderSummary(r) {
-  const reps = (r && r.reps) || [];
-  const total = r ? r.rep_count : 0;
+  // A long set may have spanned several server sessions; the tracker holds all of them.
+  const reps = tracker ? tracker.allReps() : (r && r.reps) || [];
+  const total = tracker ? tracker.totalReps() : r ? r.rep_count : 0;
   $("sum-reps").textContent = total;
 
   const flagged = reps.filter((x) => x.flags && x.flags.length > 0);
@@ -482,9 +543,15 @@ function renderSummary(r) {
     el.textContent = `${prettyFlag(f)} ×${n}`;
     list.appendChild(el);
   }
-  $("sum-cue").textContent = reps.length
+  let note = reps.length
     ? "Keypoints only were sent to the detector — no video left your device."
     : "Try again — make sure your whole body is in frame.";
+  // Say so if a long outage forced us to shed frames; a quietly low count would be dishonest.
+  if (droppedFrames > 0) {
+    note += ` Connection dropped out for a while, so ~${Math.round(droppedFrames / 30)}s of` +
+      " movement couldn't be scored — the count may be low.";
+  }
+  $("sum-cue").textContent = note;
 }
 
 // ---------------------------------------------------------------------------

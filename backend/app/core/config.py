@@ -306,6 +306,20 @@ FLAG_BOTTOM_PHASE_FRACTION: float = 0.2
 # finish well under this.
 PROTOTYPE_SESSION_MAX_FRAMES: int = 3600
 
+# Idle-session eviction. Session buffers used to live until the process died: ~20 MB per full
+# session, never freed, on a 512 MB free-tier instance -- so repeated sets (or one abandoned
+# long set) drove the service into memory exhaustion and Render restarts, which surface in the
+# browser as a CORS-less 502 ("Failed to fetch"). A session untouched for this long is dropped.
+# 5 min comfortably spans rest between sets; a set that resumes after longer simply starts a
+# fresh session, which the PWA already does per set. Infrastructure limit, not a detection
+# threshold.
+PROTOTYPE_SESSION_IDLE_TTL_S: int = 300
+
+# Hard ceiling on concurrently held sessions, evicting least-recently-used first. Bounds worst-
+# case memory at roughly PROTOTYPE_MAX_SESSIONS * 20 MB even if many clients are active inside
+# the TTL window. 12 keeps that under ~250 MB of the free tier's 512 MB.
+PROTOTYPE_MAX_SESSIONS: int = 12
+
 # ─── Exercise library loader (CLAUDE.md §6) ───────────────────────────────────────
 # kinetiq-v2/backend/app/core/config.py -> parents[3] == kinetiq-v2/
 EXERCISE_LIBRARY_DIR: Path = Path(__file__).resolve().parents[3] / "exercises"

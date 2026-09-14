@@ -14,13 +14,14 @@
 //
 // CACHE is versioned. Bump it whenever the shell's caching behaviour changes;
 // `activate` deletes every cache that is not the current one.
-const CACHE = "kinetiq-v4-shell-v2";
+const CACHE = "kinetiq-v4-shell-v3";
 
 const SHELL = [
   "./",
   "./index.html",
   "./styles.css",
   "./app.js",
+  "./segments.js",
   "./config.js",
   "./severities.json",
   "./manifest.json",
